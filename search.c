@@ -13,6 +13,7 @@ typedef enum { RB3_SA_MEM_TG, RB3_SA_MEM_ORI, RB3_SA_SW, RB3_SA_HAPDIV } rb3_sea
 #define RB3_MF_WRITE_COV   0x4
 #define RB3_MF_WRITE_ALL   0x8
 #define RB3_MF_BOTH_DIR    0x10
+#define RB3_MF_GAP_SEQ     0x20
 
 typedef struct {
 	uint32_t flag;
@@ -244,7 +245,6 @@ static void write_per_seq(step_t *t)
 	kstring_t out = {0,0,0};
 	for (j = 0; j < t->n_seq; ++j) {
 		m_seq_t *s = &t->seq[j];
-		free(s->seq);
 		out.l = 0;
 		if (p->opt->algo == RB3_SA_SW && (p->opt->flag & RB3_MF_WRITE_ALL)) { // write all hits in a compact format
 			write_all_hits(&out, s, &t->rst[j], '+', p->opt->max_all_out);
@@ -269,11 +269,19 @@ static void write_per_seq(step_t *t)
 			}
 			rb3_swrst_free(r);
 		} else if (p->opt->min_gap_len > 0) { // output regions not covered by long MEMs
+			if ((p->opt->flag & RB3_MF_GAP_SEQ) && s->n_gap > 0) // NB: s->seq is only used in this block, so converting it is ok
+				for (i = 0; i < s->len; ++i)
+					s->seq[i] = "$ACGTN"[s->seq[i]];
 			for (i = 0; i < s->n_gap; ++i) {
 				int32_t st = s->gap[i]>>32, en = (int32_t)s->gap[i];
 				out.l = 0;
 				write_name(&out, s);
-				rb3_sprintf_lite(&out, "\t%d\t%d\t%d\n", st, en, s->len);
+				rb3_sprintf_lite(&out, "\t%d\t%d\t%d", st, en, s->len);
+				if (p->opt->flag & RB3_MF_GAP_SEQ) {
+					rb3_sprintf_lite(&out, "\t");
+					rb3_str_append(&out, (char*)&s->seq[st], (char*)&s->seq[en]);
+				}
+				rb3_sprintf_lite(&out, "\n");
 				fputs(out.s, stdout);
 			}
 		} else if (p->opt->flag & RB3_MF_WRITE_COV) { // output breadth of coverage
@@ -317,6 +325,7 @@ static void write_per_seq(step_t *t)
 				fputs(out.s, stdout);
 			}
 		}
+		free(s->seq);
 		free(s->name); free(s->mem); free(s->gap);
 	}
 	free(out.s);
@@ -432,6 +441,7 @@ static ko_longopt_t long_options[] = {
 	{ "cov",             ko_no_argument,       304 },
 	{ "old-mem",         ko_no_argument,       305 },
 	{ "all-e2e",         ko_no_argument,       306 },
+	{ "gap-seq",         ko_no_argument,       307 },
 	{ "no-kalloc",       ko_no_argument,       501 },
 	{ "dbg-dawg",        ko_no_argument,       502 },
 	{ "dbg-sw",          ko_no_argument,       503 },
@@ -476,10 +486,11 @@ int main_search(int argc, char *argv[]) // "sw" and "mem" share the same CLI
 		else if (c == 'b') opt.flag |= RB3_MF_BOTH_DIR;
 		else if (c == 301) no_ssa = 1;
 		else if (c == 302) opt.swo.flag |= RB3_SWF_KEEP_RS;
-		else if (c == 303) opt.min_gap_len = rb3_parse_num(o.arg);
+		else if (c == 303) opt.min_gap_len = rb3_parse_num(o.arg); // --gap
 		else if (c == 304) opt.flag |= RB3_MF_WRITE_COV;
 		else if (c == 305) opt.algo = RB3_SA_MEM_ORI;
 		else if (c == 306) opt.flag |= RB3_MF_WRITE_ALL, opt.swo.flag |= RB3_SWF_E2E, opt.swo.end_len = 1, no_ssa = 1;
+		else if (c == 307) opt.flag |= RB3_MF_GAP_SEQ; // --gap-seq
 		else if (c == 501) opt.flag |= RB3_MF_NO_KALLOC;
 		else if (c == 502) rb3_dbg_flag |= RB3_DBG_DAWG;
 		else if (c == 503) rb3_dbg_flag |= RB3_DBG_SW;
@@ -512,6 +523,7 @@ int main_search(int argc, char *argv[]) // "sw" and "mem" share the same CLI
 			fprintf(stderr, "  -c INT      min interval size [%ld]\n", (long)opt.min_occ);
 			fprintf(stderr, "  --old-mem   use the original MEM algorithm (for testing)\n");
 			fprintf(stderr, "  --gap=NUM   output regions >=NUM that are not covered by MEMs [%d]\n", opt.min_gap_len);
+			fprintf(stderr, "  --gap-seq   output uncovered regions\n");
 			fprintf(stderr, "  --cov       output breadth of coverage\n");
 		}
 		if (strcmp(argv[0], "search") == 0) {

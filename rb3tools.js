@@ -466,6 +466,25 @@ function rb3_cmd_uniqmer(args)
 	}
 }
 
+function rb3_cmd_cnte2e(args)
+{
+	let max_ed = 3;
+	let name = null, cnt = [];
+	for (const line of k8_readline(args[0])) {
+		let t = line.split("\t");
+		if (t[0] == "QS") {
+			name = t[1];
+			for (let i = 0; i <= max_ed; ++i) cnt[i] = 0;
+		} else if (t[0] == "QH") {
+			let ed = parseInt(t[3]);
+			if (ed > max_ed) continue;
+			cnt[ed] += parseInt(t[1]);
+		} else if (t[0] == "//") {
+			print(name, cnt.join("\t"));
+		}
+	}
+}
+
 /****************
  * main functon *
  ****************/
@@ -490,6 +509,7 @@ function main(args)
 	else if (cmd == "call") rb3_cmd_call(args);
 	else if (cmd == "getsnp") rb3_cmd_getsnp(args);
 	else if (cmd == "uniqmer") rb3_cmd_uniqmer(args);
+	else if (cmd == "cnte2e") rb3_cmd_cnte2e(args);
 	else if (cmd == "version") print(rb3_version);
 	else throw Error("unrecognized command: " + cmd);
 }

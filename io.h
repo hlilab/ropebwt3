@@ -30,6 +30,7 @@ void rb3_revcomp6(int64_t l, uint8_t *s);
 void rb3_reverse_all(int64_t len, uint8_t *seq);
 
 int64_t rb3_sprintf_lite(kstring_t *s, const char *fmt, ...);
+void rb3_str_append(kstring_t *s, const char *st, const char *en);
 
 rb3_sid_t *rb3_sid_read(const char *fn);
 void rb3_sid_destroy(rb3_sid_t *sl);

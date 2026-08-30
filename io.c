@@ -232,6 +232,11 @@ static inline void str_copy(kstring_t *s, const char *st, const char *en)
 	s->l += en - st;
 }
 
+void rb3_str_append(kstring_t *s, const char *st, const char *en)
+{
+	str_copy(s, st, en);
+}
+
 int64_t rb3_sprintf_lite(kstring_t *s, const char *fmt, ...)
 {
 	char buf[32]; // for integer to string conversion
